@@ -248,16 +248,19 @@ class SourdoughCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         flour_g: float | None = None,
         water_g: float | None = None,
         discarded_g: float | None = None,
+        timestamp: datetime | None = None,
     ) -> None:
         """Record a feeding event.
 
         If amounts are not provided, the configured defaults are used.
         Discard amount defaults to 0 if not provided (caller should pass
         the computed discard_amount if the user discarded).
+        If timestamp is provided it is used instead of now(), allowing
+        backdating of historical feedings.
         """
         cfg = self._config()
         feeding: dict[str, Any] = {
-            "timestamp": dt_util.now().isoformat(),
+            "timestamp": (timestamp or dt_util.now()).isoformat(),
             "flour_g": flour_g
             if flour_g is not None
             else float(cfg.get(CONF_FLOUR_AMOUNT, DEFAULT_FLOUR_GRAMS)),
@@ -276,6 +279,19 @@ class SourdoughCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "start_datetime": dt_util.now().isoformat(),
             "feedings": [],
         }
+        await self._store.async_save(self._stored)
+        await self.async_refresh()
+
+    async def async_set_day(self, day: int) -> None:
+        """Set the current recipe day by backdating the start datetime.
+
+        Sets start_datetime = now - (day - 1) * 24h so that the computed
+        current_day equals the requested value.
+        """
+        if day < 1:
+            raise ValueError("Day must be 1 or greater")
+        new_start = dt_util.now() - timedelta(hours=(day - 1) * 24)
+        self._stored["start_datetime"] = new_start.isoformat()
         await self._store.async_save(self._stored)
         await self.async_refresh()
 

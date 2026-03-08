@@ -49,6 +49,45 @@ record_feeding:
           max: 10000
           step: 0.1
           unit_of_measurement: "g / oz"
+    timestamp:
+      name: Feeding Timestamp
+      description: >
+        When the feeding actually happened. Use this to backdate a feeding you
+        forgot to record, or to set the correct "last fed" time when you are
+        catching up after starting the integration mid-recipe.
+        If omitted, the current time is used.
+      required: false
+      example: "2026-03-08 09:00:00"
+      selector:
+        datetime:
+
+set_day:
+  name: Set Current Day
+  description: >
+    Set the current recipe day. Use this when you have set up the integration
+    mid-recipe and need to tell it which day you are on. The start datetime is
+    adjusted automatically so the day counter shows the correct value.
+  fields:
+    day:
+      name: Day
+      description: The recipe day number to set (1 = first day, 3 = discard starts, etc.).
+      required: true
+      example: 3
+      selector:
+        number:
+          min: 1
+          max: 30
+          step: 1
+          mode: box
+    entry_id:
+      name: Entry ID
+      description: >
+        The config entry ID of the sourdough tracker to update. Omit if you
+        only have one sourdough tracker configured.
+      required: false
+      example: "abc123def456"
+      selector:
+        text:
 
 reset_process:
   name: Reset Process

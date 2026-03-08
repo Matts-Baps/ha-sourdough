@@ -20,6 +20,7 @@ from .const import (
     PLATFORMS,
     SERVICE_RECORD_FEEDING,
     SERVICE_RESET,
+    SERVICE_SET_DAY,
     UNIT_IMPERIAL,
 )
 from .coordinator import SourdoughCoordinator
@@ -55,6 +56,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if not hass.data[DOMAIN]:
             hass.services.async_remove(DOMAIN, SERVICE_RECORD_FEEDING)
             hass.services.async_remove(DOMAIN, SERVICE_RESET)
+            hass.services.async_remove(DOMAIN, SERVICE_SET_DAY)
     return unload_ok
 
 
@@ -93,6 +95,7 @@ def _register_services(
             vol.Optional("flour"): vol.Coerce(float),
             vol.Optional("water"): vol.Coerce(float),
             vol.Optional("discarded"): vol.Coerce(float),
+            vol.Optional("timestamp"): cv.datetime,
         }
     )
 
@@ -109,6 +112,7 @@ def _register_services(
         flour_raw = call.data.get("flour")
         water_raw = call.data.get("water")
         discarded_raw = call.data.get("discarded")
+        timestamp = call.data.get("timestamp")
 
         flour_g = _to_grams(flour_raw, us) if flour_raw is not None else None
         water_g = _to_grams(water_raw, us) if water_raw is not None else None
@@ -118,6 +122,7 @@ def _register_services(
             flour_g=flour_g,
             water_g=water_g,
             discarded_g=discarded_g,
+            timestamp=timestamp,
         )
 
     # Service: reset_process
@@ -135,6 +140,22 @@ def _register_services(
             return
         await target_coordinator.async_reset()
 
+    # Service: set_day
+    set_day_schema = vol.Schema(
+        {
+            vol.Optional("entry_id"): cv.string,
+            vol.Required("day"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+        }
+    )
+
+    async def handle_set_day(call: ServiceCall) -> None:
+        target_entry_id = call.data.get("entry_id", entry.entry_id)
+        target_coordinator: SourdoughCoordinator = hass.data[DOMAIN].get(target_entry_id)
+        if target_coordinator is None:
+            _LOGGER.error("No sourdough entry found with id: %s", target_entry_id)
+            return
+        await target_coordinator.async_set_day(call.data["day"])
+
     # Only register services once (they work across all entries via entry_id)
     if not hass.services.has_service(DOMAIN, SERVICE_RECORD_FEEDING):
         hass.services.async_register(
@@ -150,4 +171,12 @@ def _register_services(
             SERVICE_RESET,
             handle_reset,
             schema=reset_schema,
+        )
+
+    if not hass.services.has_service(DOMAIN, SERVICE_SET_DAY):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_SET_DAY,
+            handle_set_day,
+            schema=set_day_schema,
         )
