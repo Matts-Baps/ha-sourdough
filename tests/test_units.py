@@ -2,20 +2,20 @@
 
 import pytest
 
+from custom_components.sourdough.const import UNIT_IMPERIAL, UNIT_METRIC
 from custom_components.sourdough.units import (
     _fraction_str,
     cups_flour_to_grams,
     cups_water_to_grams,
     format_flour_volume,
-    format_weight,
     format_water_volume,
+    format_weight,
     grams_flour_to_cups,
     grams_to_oz,
     grams_water_to_cups,
     input_to_grams,
     oz_to_grams,
 )
-from custom_components.sourdough.const import UNIT_IMPERIAL, UNIT_METRIC
 
 
 class TestWeightConversion:

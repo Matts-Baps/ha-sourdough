@@ -16,7 +16,6 @@ from custom_components.sourdough.const import (
     UNIT_METRIC,
 )
 
-
 AMOUNTS_METRIC = {
     CONF_FLOUR_AMOUNT: 60.0,
     CONF_WATER_AMOUNT: 60.0,

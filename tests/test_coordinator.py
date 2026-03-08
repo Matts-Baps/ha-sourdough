@@ -19,6 +19,7 @@ from custom_components.sourdough.coordinator import (
     _phase_label,
     estimate_starter_weight,
 )
+
 from .conftest import DEFAULT_CONFIG
 
 # Fixed "now" used across all tests that need a stable clock

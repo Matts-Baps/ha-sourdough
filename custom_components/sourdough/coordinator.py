@@ -13,6 +13,10 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
+    CONF_DISCARD_RATIO,
+    CONF_FLOUR_AMOUNT,
+    CONF_VESSEL_TARE,
+    CONF_WATER_AMOUNT,
     DEFAULT_DISCARD_RATIO,
     DEFAULT_FLOUR_GRAMS,
     DEFAULT_VESSEL_TARE_GRAMS,
@@ -21,10 +25,6 @@ from .const import (
     RECIPE_PHASES,
     STORAGE_KEY,
     STORAGE_VERSION,
-    CONF_FLOUR_AMOUNT,
-    CONF_WATER_AMOUNT,
-    CONF_DISCARD_RATIO,
-    CONF_VESSEL_TARE,
 )
 
 _LOGGER = logging.getLogger(__name__)

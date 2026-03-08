@@ -7,13 +7,12 @@ helper functions to convert to/from imperial for display purposes.
 from __future__ import annotations
 
 from .const import (
-    GRAMS_PER_OZ,
     GRAMS_PER_CUP_FLOUR,
     GRAMS_PER_CUP_WATER,
+    GRAMS_PER_OZ,
     GRAMS_PER_TBSP_FLOUR,
     GRAMS_PER_TBSP_WATER,
     UNIT_IMPERIAL,
-    UNIT_METRIC,
 )
 
 
