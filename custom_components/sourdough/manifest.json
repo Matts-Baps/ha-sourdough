@@ -1,7 +1,7 @@
 {
   "domain": "sourdough",
   "name": "Sourdough Monitor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "documentation": "https://github.com/Matts-Baps/ha-sourdough",
   "issue_tracker": "https://github.com/Matts-Baps/ha-sourdough/issues",
   "codeowners": ["@proffalken"],

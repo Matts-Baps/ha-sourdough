@@ -153,6 +153,20 @@ Default amounts: **½ cup flour (60 g)** + **¼ cup water (60 g)** = 100% hydrat
 
 ---
 
+## Recipe Credit
+
+The default feeding schedule is based on the sourdough starter recipe by
+[@matts.baps](https://www.instagram.com/matts.baps/) on Instagram:
+[https://www.instagram.com/p/DSxZ-QKDi7W/](https://www.instagram.com/p/DSxZ-QKDi7W/)
+
+---
+
 ## Contributing
 
 Issues and pull requests welcome at `https://github.com/Matts-Baps/ha-sourdough`.
+
+---
+
+## Disclaimer
+
+This integration was written using [Claude Code](https://claude.com/claude-code) (Anthropic's AI coding assistant) and has been reviewed and approved by human maintainers before publication. All logic, schedules, and defaults have been checked for correctness, but as with any community integration, use it at your own discretion.
