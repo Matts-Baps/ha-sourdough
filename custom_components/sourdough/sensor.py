@@ -115,7 +115,7 @@ def _device_info(entry: ConfigEntry) -> DeviceInfo:
     return DeviceInfo(
         identifiers={(DOMAIN, entry.entry_id)},
         name="Sourdough Monitor",
-        manufacturer="Community",
+        manufacturer="Matt's Baps",
         model="Sourdough Starter Tracker",
         sw_version="1.0.0",
     )
