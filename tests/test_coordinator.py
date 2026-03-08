@@ -5,12 +5,13 @@ from datetime import timedelta
 import pytest
 import homeassistant.util.dt as dt_util
 
+from custom_components.sourdough.const import CONF_VESSEL_TARE
 from custom_components.sourdough.coordinator import (
+    _build_instructions,
     _get_phase_for_day,
     _phase_label,
-    _build_instructions,
 )
-from .conftest import make_coordinator
+from .conftest import DEFAULT_CONFIG, make_coordinator
 
 
 class TestPhaseForDay:
@@ -150,7 +151,6 @@ class TestComputeState:
         assert state["phase"] == "Establishment"
 
     def test_total_weight_includes_vessel_tare(self):
-        from custom_components.sourdough.const import CONF_VESSEL_TARE
         stored = {
             "start_datetime": dt_util.now().isoformat(),
             "feedings": [
@@ -158,7 +158,7 @@ class TestComputeState:
             ],
             "weight_baseline": None,
         }
-        config = {**__import__('tests.conftest', fromlist=['DEFAULT_CONFIG']).DEFAULT_CONFIG, CONF_VESSEL_TARE: 200.0}
+        config = {**DEFAULT_CONFIG, CONF_VESSEL_TARE: 200.0}
         coord = make_coordinator(stored, config)
         state = coord._compute_state()
         # starter = 120g, vessel = 200g → total = 320g
