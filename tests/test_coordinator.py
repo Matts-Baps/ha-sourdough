@@ -1,36 +1,38 @@
 """Tests for coordinator logic: phase detection, weight estimation, day calculation.
 
-dt_util.now() requires HA's event loop (Frame helper). All tests that touch
-_compute_state() or create timestamps patch it via unittest.mock so no HA
-infrastructure is needed.
+Weight estimation tests call the module-level pure function directly — no HA
+infrastructure needed. _compute_state tests use the hass fixture (which sets
+up the Frame helper) with dt_util.now patched to a fixed datetime.
 """
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.sourdough.const import CONF_VESSEL_TARE
+from custom_components.sourdough.const import CONF_VESSEL_TARE, DOMAIN
 from custom_components.sourdough.coordinator import (
+    SourdoughCoordinator,
     _build_instructions,
     _get_phase_for_day,
     _phase_label,
+    estimate_starter_weight,
 )
-from .conftest import DEFAULT_CONFIG, make_coordinator
+from .conftest import DEFAULT_CONFIG
 
 # Fixed "now" used across all tests that need a stable clock
 _NOW = datetime(2026, 3, 8, 12, 0, 0, tzinfo=timezone.utc)
-
-# Patch target for dt_util.now inside the coordinator module
 _DT_NOW = "custom_components.sourdough.coordinator.dt_util.now"
-# Patch target for dt_util.parse_datetime (returns timezone-aware datetimes)
-_DT_PARSE = "custom_components.sourdough.coordinator.dt_util.parse_datetime"
 
 
 def _ts(dt: datetime) -> str:
-    """ISO format helper."""
     return dt.isoformat()
 
+
+# ---------------------------------------------------------------------------
+# Pure function tests — no HA required
+# ---------------------------------------------------------------------------
 
 class TestPhaseForDay:
     @pytest.mark.parametrize("day,expected_hours,expected_discard", [
@@ -85,78 +87,61 @@ class TestBuildInstructions:
         assert "active" in result.lower()
 
 
-class TestWeightEstimation:
-    """These tests call _estimate_starter_weight directly.
-
-    That method only uses dt_util.parse_datetime (not dt_util.now), but we
-    use plain datetime objects in test timestamps to avoid any HA dependency.
-    """
-
-    def _coord(self, stored=None):
-        return make_coordinator(stored or {
-            "start_datetime": _ts(_NOW),
-            "feedings": [],
-        })
+class TestEstimateStarterWeight:
+    """Tests for the module-level estimate_starter_weight pure function."""
 
     def test_no_feedings_no_baseline_returns_zero(self):
-        coord = self._coord()
-        assert coord._estimate_starter_weight([], 60, 60, 0.5) == 0.0
+        assert estimate_starter_weight([], 60, 60) == 0.0
 
     def test_single_feeding_accumulates(self):
-        coord = self._coord()
         feedings = [{"timestamp": _ts(_NOW), "flour_g": 60, "water_g": 60, "discarded_g": 0}]
-        assert coord._estimate_starter_weight(feedings, 60, 60, 0.5) == pytest.approx(120.0)
+        assert estimate_starter_weight(feedings, 60, 60) == pytest.approx(120.0)
 
     def test_discard_reduces_weight(self):
-        coord = self._coord()
         feedings = [
             {"timestamp": _ts(_NOW), "flour_g": 60, "water_g": 60, "discarded_g": 0},
             {"timestamp": _ts(_NOW + timedelta(hours=24)), "flour_g": 60, "water_g": 60, "discarded_g": 60},
         ]
         # After feeding 1: 120g. Feeding 2: discard 60 → 60g, add 120 → 180g
-        assert coord._estimate_starter_weight(feedings, 60, 60, 0.5) == pytest.approx(180.0)
+        assert estimate_starter_weight(feedings, 60, 60) == pytest.approx(180.0)
 
     def test_weight_cannot_go_negative(self):
-        coord = self._coord()
         feedings = [{"timestamp": _ts(_NOW), "flour_g": 10, "water_g": 10, "discarded_g": 9999}]
-        assert coord._estimate_starter_weight(feedings, 60, 60, 0.5) >= 0.0
+        assert estimate_starter_weight(feedings, 60, 60) >= 0.0
 
     def test_baseline_used_as_starting_weight(self):
-        baseline_ts = _NOW - timedelta(hours=1)
-        feeding_ts = _NOW
-        stored = {
-            "start_datetime": _ts(_NOW - timedelta(days=2)),
-            "feedings": [],
-            "weight_baseline": {"timestamp": _ts(baseline_ts), "weight_g": 200.0},
-        }
-        coord = make_coordinator(stored)
-        feedings = [{"timestamp": _ts(feeding_ts), "flour_g": 60, "water_g": 60, "discarded_g": 0}]
+        baseline = {"timestamp": _ts(_NOW - timedelta(hours=1)), "weight_g": 200.0}
+        feedings = [{"timestamp": _ts(_NOW), "flour_g": 60, "water_g": 60, "discarded_g": 0}]
         # baseline 200 + 60 flour + 60 water = 320
-        assert coord._estimate_starter_weight(feedings, 60, 60, 0.5) == pytest.approx(320.0)
+        assert estimate_starter_weight(feedings, 60, 60, baseline) == pytest.approx(320.0)
 
     def test_feedings_before_baseline_are_ignored(self):
-        baseline_ts = _NOW
-        old_feeding_ts = _NOW - timedelta(hours=2)
-        stored = {
-            "start_datetime": _ts(_NOW - timedelta(days=2)),
-            "feedings": [],
-            "weight_baseline": {"timestamp": _ts(baseline_ts), "weight_g": 200.0},
-        }
-        coord = make_coordinator(stored)
-        feedings = [{"timestamp": _ts(old_feeding_ts), "flour_g": 60, "water_g": 60, "discarded_g": 0}]
-        assert coord._estimate_starter_weight(feedings, 60, 60, 0.5) == pytest.approx(200.0)
+        baseline = {"timestamp": _ts(_NOW), "weight_g": 200.0}
+        old_feeding = {"timestamp": _ts(_NOW - timedelta(hours=2)), "flour_g": 60, "water_g": 60, "discarded_g": 0}
+        assert estimate_starter_weight([old_feeding], 60, 60, baseline) == pytest.approx(200.0)
+
+
+# ---------------------------------------------------------------------------
+# _compute_state tests — require hass fixture for the Frame helper
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(enable_custom_integrations):
+    return
+
+
+def _make_coord(hass, config=None, stored=None):
+    """Create a coordinator with real hass but mocked Store."""
+    entry = MockConfigEntry(domain=DOMAIN, data=config or DEFAULT_CONFIG)
+    entry.add_to_hass(hass)
+    coord = SourdoughCoordinator(hass, entry)
+    coord._stored = stored or {"start_datetime": _ts(_NOW), "feedings": []}
+    return coord
 
 
 class TestComputeState:
-    """Tests for _compute_state.
-
-    dt_util.now() is patched to _NOW so results are deterministic and
-    no HA Frame helper is required.
-    """
-
-    def test_day1_on_fresh_start(self):
-        stored = {"start_datetime": _ts(_NOW), "feedings": []}
-        coord = make_coordinator(stored)
+    async def test_day1_on_fresh_start(self, hass):
+        coord = _make_coord(hass)
         with patch(_DT_NOW, return_value=_NOW):
             state = coord._compute_state()
         assert state["current_day"] == 1
@@ -164,17 +149,16 @@ class TestComputeState:
         assert state["should_discard"] is False
         assert state["starter_weight_g"] == 0.0
 
-    def test_day3_requires_discard(self):
-        start = _NOW - timedelta(days=2, hours=1)
-        stored = {"start_datetime": _ts(start), "feedings": []}
-        coord = make_coordinator(stored)
+    async def test_day3_requires_discard(self, hass):
+        stored = {"start_datetime": _ts(_NOW - timedelta(days=2, hours=1)), "feedings": []}
+        coord = _make_coord(hass, stored=stored)
         with patch(_DT_NOW, return_value=_NOW):
             state = coord._compute_state()
         assert state["current_day"] == 3
         assert state["should_discard"] is True
         assert state["phase"] == "Establishment"
 
-    def test_total_weight_includes_vessel_tare(self):
+    async def test_total_weight_includes_vessel_tare(self, hass):
         stored = {
             "start_datetime": _ts(_NOW),
             "feedings": [
@@ -182,36 +166,32 @@ class TestComputeState:
             ],
         }
         config = {**DEFAULT_CONFIG, CONF_VESSEL_TARE: 200.0}
-        coord = make_coordinator(stored, config)
+        coord = _make_coord(hass, config=config, stored=stored)
         with patch(_DT_NOW, return_value=_NOW):
             state = coord._compute_state()
-        # starter = 120g, vessel = 200g → total = 320g
         assert state["total_weight_g"] == pytest.approx(320.0)
         assert state["starter_weight_g"] == pytest.approx(120.0)
 
-    def test_no_discard_on_days_1_and_2(self):
+    async def test_no_discard_on_days_1_and_2(self, hass):
         for days_ago in [0, 1]:
-            start = _NOW - timedelta(days=days_ago)
-            stored = {"start_datetime": _ts(start), "feedings": []}
-            coord = make_coordinator(stored)
+            stored = {"start_datetime": _ts(_NOW - timedelta(days=days_ago)), "feedings": []}
+            coord = _make_coord(hass, stored=stored)
             with patch(_DT_NOW, return_value=_NOW):
                 state = coord._compute_state()
             assert state["discard_amount_g"] == 0.0
 
-    def test_is_overdue_when_past_next_feeding(self):
-        # Started 25h ago (day 1 → 24h interval), no feedings → overdue by ~1h
-        start = _NOW - timedelta(hours=25)
-        stored = {"start_datetime": _ts(start), "feedings": []}
-        coord = make_coordinator(stored)
+    async def test_is_overdue_when_past_next_feeding(self, hass):
+        # Started 25h ago (day 1, 24h interval), no feedings → overdue
+        stored = {"start_datetime": _ts(_NOW - timedelta(hours=25)), "feedings": []}
+        coord = _make_coord(hass, stored=stored)
         with patch(_DT_NOW, return_value=_NOW):
             state = coord._compute_state()
         assert state["is_overdue"] is True
         assert state["overdue_minutes"] > 0
 
-    def test_hydration_calculation(self):
-        stored = {"start_datetime": _ts(_NOW), "feedings": []}
-        # Default config: 60g flour, 60g water → 100% hydration
-        coord = make_coordinator(stored)
+    async def test_hydration_calculation(self, hass):
+        coord = _make_coord(hass)
         with patch(_DT_NOW, return_value=_NOW):
             state = coord._compute_state()
+        # Default config: 60g flour, 60g water → 100%
         assert state["hydration_pct"] == pytest.approx(100.0)
