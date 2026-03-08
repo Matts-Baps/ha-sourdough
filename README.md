@@ -1,5 +1,7 @@
 # Sourdough Monitor — Home Assistant Integration
 
+Created by [Matt's Baps](https://www.instagram.com/mattsbaps/) — follow along on Instagram for baking inspiration, recipes, and the sourdough journey that inspired this integration.
+
 A Home Assistant custom integration (installable via HACS) that helps you monitor and manage your sourdough starter. Track feeding schedules, weights, discard amounts, and get plain-text instructions for each stage of the recipe.
 
 ---
@@ -92,23 +94,65 @@ If you have multiple sourdough trackers, add `entry_id` to target a specific one
 
 ## Automation Examples
 
-### Alert when feeding is overdue
+### Notify when a feeding is due
+
+Triggers at the exact moment the next feeding time is reached.
 
 ```yaml
 automation:
-  - alias: "Sourdough feeding overdue"
+  - alias: "Sourdough — feeding due"
     trigger:
-      - platform: template
-        value_template: "{{ state_attr('sensor.sourdough_next_feeding_due', 'is_overdue') }}"
+      - platform: time
+        at: sensor.sourdough_next_feeding_due
     action:
       - service: notify.mobile_app_your_phone
         data:
+          title: "🍞 Sourdough needs feeding"
+          message: "{{ states('sensor.sourdough_instructions') }}"
+```
+
+### Escalating alert when a feeding is overdue
+
+Reminds you every 30 minutes once the feeding window has passed.
+
+```yaml
+automation:
+  - alias: "Sourdough — feeding overdue reminder"
+    trigger:
+      - platform: template
+        value_template: "{{ state_attr('sensor.sourdough_phase', 'is_overdue') }}"
+        for:
+          minutes: 30
+    action:
+      - service: notify.mobile_app_your_phone
+        data:
+          title: "⚠️ Sourdough overdue"
           message: >
-            Your sourdough starter needs feeding!
+            Feeding overdue by
+            {{ (state_attr('sensor.sourdough_phase', 'overdue_minutes') | int) // 60 }}h
+            {{ (state_attr('sensor.sourdough_phase', 'overdue_minutes') | int) % 60 }}m.
             {{ states('sensor.sourdough_instructions') }}
 ```
 
-### Record feeding via a dashboard button
+### Announce on a smart speaker when feeding is due
+
+```yaml
+automation:
+  - alias: "Sourdough — speaker announcement"
+    trigger:
+      - platform: time
+        at: sensor.sourdough_next_feeding_due
+    action:
+      - service: tts.speak
+        target:
+          entity_id: media_player.kitchen_speaker
+        data:
+          message: "Time to feed your sourdough starter. {{ states('sensor.sourdough_instructions') }}"
+```
+
+### Record a feeding from a dashboard button
+
+Use alongside the built-in **Record Feeding** button entity, or call the service directly from a script.
 
 ```yaml
 script:
@@ -117,8 +161,75 @@ script:
     sequence:
       - service: sourdough.record_feeding
         data:
-          discarded: >
-            {{ states('sensor.sourdough_discard_amount') | float }}
+          discarded: "{{ states('sensor.sourdough_discard_amount') | float }}"
+```
+
+### Flash a light when feeding is due
+
+Handy if you want a physical reminder without your phone.
+
+```yaml
+automation:
+  - alias: "Sourdough — light reminder"
+    trigger:
+      - platform: time
+        at: sensor.sourdough_next_feeding_due
+    action:
+      - repeat:
+          count: 3
+          sequence:
+            - service: light.turn_on
+              target:
+                entity_id: light.kitchen
+              data:
+                color_name: orange
+            - delay: "00:00:02"
+            - service: light.turn_off
+              target:
+                entity_id: light.kitchen
+            - delay: "00:00:02"
+```
+
+### Daily summary notification
+
+Get a morning briefing on your starter's status.
+
+```yaml
+automation:
+  - alias: "Sourdough — daily summary"
+    trigger:
+      - platform: time
+        at: "08:00:00"
+    action:
+      - service: notify.mobile_app_your_phone
+        data:
+          title: "🍞 Sourdough update"
+          message: >
+            Day {{ states('sensor.sourdough_current_day') }}
+            ({{ states('sensor.sourdough_phase') }}).
+            Next feeding: {{ states('sensor.sourdough_next_feeding_due') | as_timestamp | timestamp_custom('%H:%M') }}.
+            Starter weight: {{ states('sensor.sourdough_starter_weight') }}{{ state_attr('sensor.sourdough_starter_weight', 'unit_of_measurement') }}.
+```
+
+### Log feedings to a helper for history tracking
+
+Create a **Text** helper (`input_text.sourdough_log`) in HA, then append to it on every feeding.
+
+```yaml
+automation:
+  - alias: "Sourdough — log feeding"
+    trigger:
+      - platform: state
+        entity_id: sensor.sourdough_total_feedings
+    action:
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.sourdough_log
+        data:
+          value: >
+            Last fed {{ now().strftime('%d %b %H:%M') }},
+            Day {{ states('sensor.sourdough_current_day') }},
+            {{ states('sensor.sourdough_starter_weight') }}g starter.
 ```
 
 ---
