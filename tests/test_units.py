@@ -29,8 +29,10 @@ class TestWeightConversion:
         assert oz_to_grams(0) == 0.0
 
     def test_roundtrip(self):
+        # Two rounds of rounding (grams→oz at 2dp, oz→grams at 2dp) introduces
+        # up to ~0.5g error, so we allow 1g absolute tolerance.
         for g in [30, 60, 120, 200, 500]:
-            assert oz_to_grams(grams_to_oz(g)) == pytest.approx(g, rel=1e-4)
+            assert oz_to_grams(grams_to_oz(g)) == pytest.approx(g, abs=1.0)
 
 
 class TestVolumeConversion:

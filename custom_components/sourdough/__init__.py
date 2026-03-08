@@ -15,7 +15,6 @@ from .const import (
     CONF_UNIT_SYSTEM,
     DOMAIN,
     GRAMS_PER_OZ,
-    PLATFORMS,
     SERVICE_RECORD_FEEDING,
     SERVICE_RESET,
     SERVICE_SET_DAY,

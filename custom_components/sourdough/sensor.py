@@ -36,10 +36,9 @@ from .const import (
     SENSOR_VESSEL_TARE,
     SENSOR_WATER_TO_ADD,
     UNIT_IMPERIAL,
-    UNIT_METRIC,
 )
 from .coordinator import SourdoughCoordinator
-from .units import format_flour_volume, format_water_volume, format_weight
+from .units import format_flour_volume, format_water_volume
 
 _LOGGER = logging.getLogger(__name__)
 
