@@ -156,7 +156,7 @@ Default amounts: **½ cup flour (60 g)** + **¼ cup water (60 g)** = 100% hydrat
 ## Recipe Credit
 
 The default feeding schedule is based on the sourdough starter recipe by
-[@matts.baps](https://www.instagram.com/matts.baps/) on Instagram:
+[@anabelle.vangiller](https://www.instagram.com/anabelle.vangiller/) on Instagram:
 [https://www.instagram.com/p/DSxZ-QKDi7W/](https://www.instagram.com/p/DSxZ-QKDi7W/)
 
 ---
