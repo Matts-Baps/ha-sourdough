@@ -1,0 +1,12 @@
+{
+  "domain": "sourdough",
+  "name": "Sourdough Monitor",
+  "version": "1.0.0",
+  "documentation": "https://github.com/Matts-Baps/ha-sourdough",
+  "issue_tracker": "https://github.com/Matts-Baps/ha-sourdough/issues",
+  "codeowners": ["@proffalken"],
+  "config_flow": true,
+  "iot_class": "local_push",
+  "dependencies": [],
+  "requirements": []
+}
