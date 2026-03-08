@@ -13,6 +13,10 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
+    CONF_DISCARD_RATIO,
+    CONF_FLOUR_AMOUNT,
+    CONF_VESSEL_TARE,
+    CONF_WATER_AMOUNT,
     DEFAULT_DISCARD_RATIO,
     DEFAULT_FLOUR_GRAMS,
     DEFAULT_VESSEL_TARE_GRAMS,
@@ -21,10 +25,6 @@ from .const import (
     RECIPE_PHASES,
     STORAGE_KEY,
     STORAGE_VERSION,
-    CONF_FLOUR_AMOUNT,
-    CONF_WATER_AMOUNT,
-    CONF_DISCARD_RATIO,
-    CONF_VESSEL_TARE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -77,6 +77,37 @@ def _build_instructions(day: int, should_discard: bool, interval_hours: int, is_
         )
 
     return urgency + action
+
+
+def estimate_starter_weight(
+    feedings: list[dict],
+    flour_g: float,
+    water_g: float,
+    weight_baseline: dict | None = None,
+) -> float:
+    """Pure function: estimate starter weight by replaying the feeding log.
+
+    If weight_baseline is provided it is used as the starting point and only
+    feedings recorded *after* the snapshot timestamp are replayed.
+    """
+    if weight_baseline:
+        weight = float(weight_baseline["weight_g"])
+        baseline_dt = dt_util.parse_datetime(weight_baseline["timestamp"])
+        relevant = [
+            f for f in feedings
+            if dt_util.parse_datetime(f["timestamp"]) > baseline_dt
+        ]
+    else:
+        weight = 0.0
+        relevant = feedings
+
+    for feeding in relevant:
+        discarded = float(feeding.get("discarded_g", 0.0))
+        f_flour = float(feeding.get("flour_g", flour_g))
+        f_water = float(feeding.get("water_g", water_g))
+        weight = max(0.0, weight - discarded) + f_flour + f_water
+
+    return weight
 
 
 class SourdoughCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -222,31 +253,9 @@ class SourdoughCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         water_g: float,
         discard_ratio: float,
     ) -> float:
-        """Estimate current starter weight from feeding history.
-
-        If a weight baseline snapshot exists, it is used as the starting
-        point and only feedings recorded *after* the snapshot are replayed.
-        Otherwise the replay starts from 0.
-        """
-        baseline = self._stored.get("weight_baseline")
-        if baseline:
-            weight = float(baseline["weight_g"])
-            baseline_dt = dt_util.parse_datetime(baseline["timestamp"])
-            relevant = [
-                f for f in feedings
-                if dt_util.parse_datetime(f["timestamp"]) > baseline_dt
-            ]
-        else:
-            weight = 0.0
-            relevant = feedings
-
-        for feeding in relevant:
-            discarded = float(feeding.get("discarded_g", 0.0))
-            f_flour = float(feeding.get("flour_g", flour_g))
-            f_water = float(feeding.get("water_g", water_g))
-            weight = max(0.0, weight - discarded) + f_flour + f_water
-
-        return weight
+        return estimate_starter_weight(
+            feedings, flour_g, water_g, self._stored.get("weight_baseline")
+        )
 
     # ------------------------------------------------------------------
     # Mutating operations

@@ -39,7 +39,7 @@ from .const import (
     UNIT_METRIC,
 )
 from .coordinator import SourdoughCoordinator
-from .units import format_flour_volume, format_water_volume, format_weight
+from .units import format_flour_volume, format_water_volume
 
 _LOGGER = logging.getLogger(__name__)
 

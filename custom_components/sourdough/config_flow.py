@@ -6,10 +6,8 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.core import callback
-import homeassistant.util.dt as dt_util
 
 from .const import (
     CONF_DISCARD_RATIO,
@@ -36,16 +34,10 @@ def _schema_for_units(unit_system: str, defaults: dict) -> vol.Schema:
         flour_default = round(defaults.get(CONF_FLOUR_AMOUNT, DEFAULT_FLOUR_GRAMS) / GRAMS_PER_OZ, 2)
         water_default = round(defaults.get(CONF_WATER_AMOUNT, DEFAULT_WATER_GRAMS) / GRAMS_PER_OZ, 2)
         vessel_default = round(defaults.get(CONF_VESSEL_TARE, DEFAULT_VESSEL_TARE_GRAMS) / GRAMS_PER_OZ, 2)
-        flour_desc = "Flour per feeding (oz)"
-        water_desc = "Water per feeding (oz)"
-        vessel_desc = "Empty vessel/jar weight (oz, 0 to skip)"
     else:
         flour_default = defaults.get(CONF_FLOUR_AMOUNT, DEFAULT_FLOUR_GRAMS)
         water_default = defaults.get(CONF_WATER_AMOUNT, DEFAULT_WATER_GRAMS)
         vessel_default = defaults.get(CONF_VESSEL_TARE, DEFAULT_VESSEL_TARE_GRAMS)
-        flour_desc = "Flour per feeding (g)"
-        water_desc = "Water per feeding (g)"
-        vessel_desc = "Empty vessel/jar weight (g, 0 to skip)"
 
     return vol.Schema(
         {
