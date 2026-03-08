@@ -224,14 +224,23 @@ class SourdoughCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     ) -> float:
         """Estimate current starter weight from feeding history.
 
-        We replay the feeding log: each feeding records how much was
-        discarded and how much flour/water was added.
+        If a weight baseline snapshot exists, it is used as the starting
+        point and only feedings recorded *after* the snapshot are replayed.
+        Otherwise the replay starts from 0.
         """
-        if not feedings:
-            return 0.0
+        baseline = self._stored.get("weight_baseline")
+        if baseline:
+            weight = float(baseline["weight_g"])
+            baseline_dt = dt_util.parse_datetime(baseline["timestamp"])
+            relevant = [
+                f for f in feedings
+                if dt_util.parse_datetime(f["timestamp"]) > baseline_dt
+            ]
+        else:
+            weight = 0.0
+            relevant = feedings
 
-        weight = 0.0
-        for feeding in feedings:
+        for feeding in relevant:
             discarded = float(feeding.get("discarded_g", 0.0))
             f_flour = float(feeding.get("flour_g", flour_g))
             f_water = float(feeding.get("water_g", water_g))
@@ -278,6 +287,28 @@ class SourdoughCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._stored = {
             "start_datetime": dt_util.now().isoformat(),
             "feedings": [],
+        }
+        await self._store.async_save(self._stored)
+        await self.async_refresh()
+
+    async def async_set_weight(
+        self,
+        weight_g: float,
+        includes_vessel: bool = True,
+    ) -> None:
+        """Record a known starter weight, used as the baseline for future estimates.
+
+        Args:
+            weight_g: The measured weight in grams.
+            includes_vessel: If True, the vessel tare is subtracted before storing
+                             so the baseline always represents starter-only weight.
+        """
+        cfg = self._config()
+        tare_g = float(cfg.get(CONF_VESSEL_TARE, 0.0)) if includes_vessel else 0.0
+        starter_g = max(0.0, weight_g - tare_g)
+        self._stored["weight_baseline"] = {
+            "timestamp": dt_util.now().isoformat(),
+            "weight_g": round(starter_g, 2),
         }
         await self._store.async_save(self._stored)
         await self.async_refresh()

@@ -47,6 +47,7 @@ CONF_START_DATETIME = "start_datetime"
 SERVICE_RECORD_FEEDING = "record_feeding"
 SERVICE_RESET = "reset_process"
 SERVICE_SET_DAY = "set_day"
+SERVICE_SET_WEIGHT = "set_weight"
 
 # Sensor unique ID suffixes
 SENSOR_DAY = "day"

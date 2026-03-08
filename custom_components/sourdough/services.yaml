@@ -61,6 +61,47 @@ record_feeding:
       selector:
         datetime:
 
+set_weight:
+  name: Set Current Weight
+  description: >
+    Record the current weight of your starter as measured on a scale.
+    This becomes the baseline for all future weight estimates — only feedings
+    recorded after this point are added on top. Use this when you are setting
+    up the integration mid-recipe and already have starter in the vessel.
+  fields:
+    weight:
+      name: Weight
+      description: >
+        The measured weight (g for metric, oz for imperial). By default this is
+        assumed to be the total weight including the vessel; set includes_vessel
+        to false if you are entering the starter weight on its own.
+      required: true
+      example: 350
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: 0.1
+          unit_of_measurement: "g / oz"
+    includes_vessel:
+      name: Includes Vessel
+      description: >
+        Set to true (default) if the weight reading includes the vessel/jar.
+        The configured vessel tare will be subtracted automatically.
+        Set to false if you have already tared the scale with the vessel on it.
+      required: false
+      default: true
+      selector:
+        boolean:
+    entry_id:
+      name: Entry ID
+      description: >
+        The config entry ID of the sourdough tracker to update. Omit if you
+        only have one sourdough tracker configured.
+      required: false
+      selector:
+        text:
+
 set_day:
   name: Set Current Day
   description: >

@@ -21,6 +21,7 @@ from .const import (
     SERVICE_RECORD_FEEDING,
     SERVICE_RESET,
     SERVICE_SET_DAY,
+    SERVICE_SET_WEIGHT,
     UNIT_IMPERIAL,
 )
 from .coordinator import SourdoughCoordinator
@@ -57,6 +58,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.services.async_remove(DOMAIN, SERVICE_RECORD_FEEDING)
             hass.services.async_remove(DOMAIN, SERVICE_RESET)
             hass.services.async_remove(DOMAIN, SERVICE_SET_DAY)
+            hass.services.async_remove(DOMAIN, SERVICE_SET_WEIGHT)
     return unload_ok
 
 
@@ -179,4 +181,36 @@ def _register_services(
             SERVICE_SET_DAY,
             handle_set_day,
             schema=set_day_schema,
+        )
+
+    # Service: set_weight
+    set_weight_schema = vol.Schema(
+        {
+            vol.Optional("entry_id"): cv.string,
+            vol.Required("weight"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+            vol.Optional("includes_vessel", default=True): cv.boolean,
+        }
+    )
+
+    async def handle_set_weight(call: ServiceCall) -> None:
+        target_entry_id = call.data.get("entry_id", entry.entry_id)
+        target_coordinator: SourdoughCoordinator = hass.data[DOMAIN].get(target_entry_id)
+        if target_coordinator is None:
+            _LOGGER.error("No sourdough entry found with id: %s", target_entry_id)
+            return
+
+        target_entry = hass.config_entries.async_get_entry(target_entry_id)
+        us = _unit_system(target_entry) if target_entry else "metric"
+        weight_g = _to_grams(call.data["weight"], us)
+        await target_coordinator.async_set_weight(
+            weight_g=weight_g,
+            includes_vessel=call.data["includes_vessel"],
+        )
+
+    if not hass.services.has_service(DOMAIN, SERVICE_SET_WEIGHT):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_SET_WEIGHT,
+            handle_set_weight,
+            schema=set_weight_schema,
         )
