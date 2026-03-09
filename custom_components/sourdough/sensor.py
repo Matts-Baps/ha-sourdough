@@ -37,6 +37,7 @@ from .const import (
     SENSOR_WATER_TO_ADD,
     UNIT_IMPERIAL,
     UNIT_METRIC,
+    VERSION,
 )
 from .coordinator import SourdoughCoordinator
 from .units import format_flour_volume, format_water_volume
@@ -117,7 +118,7 @@ def _device_info(entry: ConfigEntry) -> DeviceInfo:
         name="Sourdough Monitor",
         manufacturer="Matt's Baps",
         model="Sourdough Starter Tracker",
-        sw_version="1.0.0",
+        sw_version=VERSION,
     )
 
 

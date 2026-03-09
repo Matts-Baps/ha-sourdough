@@ -1,6 +1,12 @@
 """Constants for the Sourdough Monitor integration."""
 
+import json
+from pathlib import Path
+
 DOMAIN = "sourdough"
+VERSION: str = json.loads(
+    (Path(__file__).parent / "manifest.json").read_text()
+)["version"]
 PLATFORMS = ["sensor"]
 
 # Storage
