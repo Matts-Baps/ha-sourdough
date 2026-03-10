@@ -8,10 +8,12 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
+from homeassistant.helpers.selector import EntitySelector, EntitySelectorConfig
 
 from .const import (
     CONF_DISCARD_RATIO,
     CONF_FLOUR_AMOUNT,
+    CONF_TEMPERATURE_SENSOR,
     CONF_UNIT_SYSTEM,
     CONF_VESSEL_TARE,
     CONF_WATER_AMOUNT,
@@ -39,6 +41,13 @@ def _schema_for_units(unit_system: str, defaults: dict) -> vol.Schema:
         water_default = defaults.get(CONF_WATER_AMOUNT, DEFAULT_WATER_GRAMS)
         vessel_default = defaults.get(CONF_VESSEL_TARE, DEFAULT_VESSEL_TARE_GRAMS)
 
+    existing_temp_sensor = defaults.get(CONF_TEMPERATURE_SENSOR)
+    temp_sensor_key = (
+        vol.Optional(CONF_TEMPERATURE_SENSOR, default=existing_temp_sensor)
+        if existing_temp_sensor
+        else vol.Optional(CONF_TEMPERATURE_SENSOR)
+    )
+
     return vol.Schema(
         {
             vol.Required(CONF_FLOUR_AMOUNT, default=flour_default): vol.Coerce(float),
@@ -46,6 +55,9 @@ def _schema_for_units(unit_system: str, defaults: dict) -> vol.Schema:
             vol.Required(CONF_VESSEL_TARE, default=vessel_default): vol.Coerce(float),
             vol.Required(CONF_DISCARD_RATIO, default=defaults.get(CONF_DISCARD_RATIO, DEFAULT_DISCARD_RATIO)): vol.All(
                 vol.Coerce(float), vol.Range(min=0.1, max=0.9)
+            ),
+            temp_sensor_key: EntitySelector(
+                EntitySelectorConfig(domain="sensor", device_class="temperature")
             ),
         }
     )
@@ -108,16 +120,17 @@ class SourdoughConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors[CONF_VESSEL_TARE] = "vessel_must_be_non_negative"
 
             if not errors:
-                return self.async_create_entry(
-                    title="Sourdough Starter",
-                    data={
-                        CONF_UNIT_SYSTEM: self._unit_system,
-                        CONF_FLOUR_AMOUNT: round(flour_g, 2),
-                        CONF_WATER_AMOUNT: round(water_g, 2),
-                        CONF_VESSEL_TARE: round(vessel_g, 2),
-                        CONF_DISCARD_RATIO: discard_ratio,
-                    },
-                )
+                data: dict = {
+                    CONF_UNIT_SYSTEM: self._unit_system,
+                    CONF_FLOUR_AMOUNT: round(flour_g, 2),
+                    CONF_WATER_AMOUNT: round(water_g, 2),
+                    CONF_VESSEL_TARE: round(vessel_g, 2),
+                    CONF_DISCARD_RATIO: discard_ratio,
+                }
+                temp_sensor = user_input.get(CONF_TEMPERATURE_SENSOR)
+                if temp_sensor:
+                    data[CONF_TEMPERATURE_SENSOR] = temp_sensor
+                return self.async_create_entry(title="Sourdough Starter", data=data)
 
         schema = _schema_for_units(self._unit_system, {})
         return self.async_show_form(
@@ -169,15 +182,16 @@ class SourdoughOptionsFlow(config_entries.OptionsFlow):
                 errors[CONF_VESSEL_TARE] = "vessel_must_be_non_negative"
 
             if not errors:
-                return self.async_create_entry(
-                    title="",
-                    data={
-                        CONF_FLOUR_AMOUNT: round(flour_g, 2),
-                        CONF_WATER_AMOUNT: round(water_g, 2),
-                        CONF_VESSEL_TARE: round(vessel_g, 2),
-                        CONF_DISCARD_RATIO: discard_ratio,
-                    },
-                )
+                options: dict = {
+                    CONF_FLOUR_AMOUNT: round(flour_g, 2),
+                    CONF_WATER_AMOUNT: round(water_g, 2),
+                    CONF_VESSEL_TARE: round(vessel_g, 2),
+                    CONF_DISCARD_RATIO: discard_ratio,
+                }
+                temp_sensor = user_input.get(CONF_TEMPERATURE_SENSOR)
+                if temp_sensor:
+                    options[CONF_TEMPERATURE_SENSOR] = temp_sensor
+                return self.async_create_entry(title="", data=options)
 
         schema = _schema_for_units(unit_system, current)
         return self.async_show_form(

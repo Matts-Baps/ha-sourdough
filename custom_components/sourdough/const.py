@@ -48,6 +48,7 @@ CONF_WATER_AMOUNT = "water_g"
 CONF_DISCARD_RATIO = "discard_ratio"
 CONF_UNIT_SYSTEM = "unit_system"
 CONF_START_DATETIME = "start_datetime"
+CONF_TEMPERATURE_SENSOR = "temperature_sensor_entity_id"
 
 # Service names
 SERVICE_RECORD_FEEDING = "record_feeding"
@@ -69,3 +70,4 @@ SENSOR_DISCARD_AMOUNT = "discard_amount"
 SENSOR_INSTRUCTIONS = "instructions"
 SENSOR_FEEDING_COUNT = "feeding_count"
 SENSOR_HYDRATION = "hydration"
+SENSOR_ROOM_TEMP = "room_temperature"
