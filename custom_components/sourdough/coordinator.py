@@ -15,6 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .const import (
     CONF_DISCARD_RATIO,
     CONF_FLOUR_AMOUNT,
+    CONF_TEMPERATURE_SENSOR,
     CONF_VESSEL_TARE,
     CONF_WATER_AMOUNT,
     DEFAULT_DISCARD_RATIO,
@@ -77,6 +78,23 @@ def _build_instructions(day: int, should_discard: bool, interval_hours: int, is_
         )
 
     return urgency + action
+
+
+def _read_temperature_c(hass: HomeAssistant, entity_id: str) -> float | None:
+    """Read a temperature sensor entity and return the value in Celsius."""
+    state = hass.states.get(entity_id)
+    if not state or state.state in ("unknown", "unavailable", ""):
+        return None
+    try:
+        temp = float(state.state)
+    except ValueError:
+        return None
+    unit = state.attributes.get("unit_of_measurement", "°C")
+    if unit in ("°F", "F"):
+        temp = (temp - 32) * 5 / 9
+    elif unit in ("K",):
+        temp = temp - 273.15
+    return round(temp, 1)
 
 
 def estimate_starter_weight(
@@ -219,6 +237,10 @@ class SourdoughCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             current_day, should_discard, interval_hours, is_overdue, overdue_minutes
         )
 
+        last_feeding_temperature_c: float | None = (
+            feedings[-1].get("temperature_c") if feedings else None
+        )
+
         return {
             # Schedule
             "current_day": current_day,
@@ -244,6 +266,8 @@ class SourdoughCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "instructions": instructions,
             # Raw start for display
             "start_datetime": start_dt.isoformat(),
+            # Temperature
+            "last_feeding_temperature_c": last_feeding_temperature_c,
         }
 
     def _estimate_starter_weight(
@@ -267,6 +291,7 @@ class SourdoughCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         water_g: float | None = None,
         discarded_g: float | None = None,
         timestamp: datetime | None = None,
+        temperature_c: float | None = None,
     ) -> None:
         """Record a feeding event.
 
@@ -275,6 +300,8 @@ class SourdoughCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         the computed discard_amount if the user discarded).
         If timestamp is provided it is used instead of now(), allowing
         backdating of historical feedings.
+        If temperature_c is not provided, the linked temperature sensor
+        entity (if configured) is read automatically.
         """
         cfg = self._config()
         feeding: dict[str, Any] = {
@@ -287,6 +314,17 @@ class SourdoughCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             else float(cfg.get(CONF_WATER_AMOUNT, DEFAULT_WATER_GRAMS)),
             "discarded_g": discarded_g if discarded_g is not None else 0.0,
         }
+
+        # Record temperature: prefer explicit override, then auto-read from entity
+        if temperature_c is not None:
+            feeding["temperature_c"] = round(temperature_c, 1)
+        else:
+            temp_entity = cfg.get(CONF_TEMPERATURE_SENSOR)
+            if temp_entity:
+                auto_temp = _read_temperature_c(self.hass, temp_entity)
+                if auto_temp is not None:
+                    feeding["temperature_c"] = auto_temp
+
         self._stored.setdefault("feedings", []).append(feeding)
         await self._store.async_save(self._stored)
         await self.async_refresh()

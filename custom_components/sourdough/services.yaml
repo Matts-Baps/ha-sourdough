@@ -60,6 +60,22 @@ record_feeding:
       example: "2026-03-08 09:00:00"
       selector:
         datetime:
+    temperature:
+      name: Room Temperature
+      description: >
+        The ambient/room temperature at the time of feeding, in °C (or °F if
+        your HA system is set to imperial). If omitted, the temperature is
+        read automatically from the sensor configured in the integration options.
+        Useful when backdating a feeding where the current sensor reading
+        is no longer representative.
+      required: false
+      example: 22.5
+      selector:
+        number:
+          min: -10
+          max: 50
+          step: 0.1
+          unit_of_measurement: "°C / °F"
 
 set_weight:
   name: Set Current Weight
