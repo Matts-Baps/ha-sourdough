@@ -41,6 +41,13 @@ def _schema_for_units(unit_system: str, defaults: dict) -> vol.Schema:
         water_default = defaults.get(CONF_WATER_AMOUNT, DEFAULT_WATER_GRAMS)
         vessel_default = defaults.get(CONF_VESSEL_TARE, DEFAULT_VESSEL_TARE_GRAMS)
 
+    existing_temp_sensor = defaults.get(CONF_TEMPERATURE_SENSOR)
+    temp_sensor_key = (
+        vol.Optional(CONF_TEMPERATURE_SENSOR, default=existing_temp_sensor)
+        if existing_temp_sensor
+        else vol.Optional(CONF_TEMPERATURE_SENSOR)
+    )
+
     return vol.Schema(
         {
             vol.Required(CONF_FLOUR_AMOUNT, default=flour_default): vol.Coerce(float),
@@ -49,7 +56,7 @@ def _schema_for_units(unit_system: str, defaults: dict) -> vol.Schema:
             vol.Required(CONF_DISCARD_RATIO, default=defaults.get(CONF_DISCARD_RATIO, DEFAULT_DISCARD_RATIO)): vol.All(
                 vol.Coerce(float), vol.Range(min=0.1, max=0.9)
             ),
-            vol.Optional(CONF_TEMPERATURE_SENSOR, default=defaults.get(CONF_TEMPERATURE_SENSOR)): EntitySelector(
+            temp_sensor_key: EntitySelector(
                 EntitySelectorConfig(domain="sensor", device_class="temperature")
             ),
         }
