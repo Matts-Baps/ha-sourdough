@@ -94,6 +94,7 @@ def _register_services(
             vol.Optional("water"): vol.Coerce(float),
             vol.Optional("discarded"): vol.Coerce(float),
             vol.Optional("timestamp"): cv.datetime,
+            vol.Optional("temperature"): vol.Coerce(float),
         }
     )
 
@@ -111,6 +112,7 @@ def _register_services(
         water_raw = call.data.get("water")
         discarded_raw = call.data.get("discarded")
         timestamp = call.data.get("timestamp")
+        temperature = call.data.get("temperature")
 
         flour_g = _to_grams(flour_raw, us) if flour_raw is not None else None
         water_g = _to_grams(water_raw, us) if water_raw is not None else None
@@ -121,6 +123,7 @@ def _register_services(
             water_g=water_g,
             discarded_g=discarded_g,
             timestamp=timestamp,
+            temperature_c=temperature,
         )
 
     # Service: reset_process

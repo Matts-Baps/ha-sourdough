@@ -13,7 +13,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfMass
+from homeassistant.const import UnitOfMass, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -31,6 +31,7 @@ from .const import (
     SENSOR_LAST_FED,
     SENSOR_NEXT_FEEDING,
     SENSOR_PHASE,
+    SENSOR_ROOM_TEMP,
     SENSOR_STARTER_WEIGHT,
     SENSOR_TOTAL_WEIGHT,
     SENSOR_VESSEL_TARE,
@@ -107,6 +108,7 @@ async def async_setup_entry(
         SourdoughHydrationSensor(coordinator, entry, unit_system),
         SourdoughFeedingCountSensor(coordinator, entry, unit_system),
         SourdoughInstructionsSensor(coordinator, entry, unit_system),
+        SourdoughRoomTemperatureSensor(coordinator, entry, unit_system),
     ]
 
     async_add_entities(entities)
@@ -346,3 +348,24 @@ class SourdoughInstructionsSensor(SourdoughBaseSensor):
             "flour_to_add_g": data.get("flour_g"),
             "water_to_add_g": data.get("water_g"),
         }
+
+
+class SourdoughRoomTemperatureSensor(SourdoughBaseSensor):
+    """Room temperature recorded at the last feeding."""
+
+    def __init__(self, coordinator, entry, unit_system):
+        super().__init__(
+            coordinator,
+            entry,
+            unit_system,
+            SENSOR_ROOM_TEMP,
+            "Room Temperature at Last Feeding",
+            "mdi:thermometer",
+        )
+        self._attr_device_class = SensorDeviceClass.TEMPERATURE
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+
+    @property
+    def native_value(self) -> float | None:
+        return self._data.get("last_feeding_temperature_c")
